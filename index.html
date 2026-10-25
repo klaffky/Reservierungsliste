@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#13201e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Service">
+<title>Service-Abhakliste</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme:dark;
+  --bg:#13201e;        /* Spree bei Nacht */
+  --surface:#1b2b28;
+  --surface-2:#243833;
+  --line:#2f4540;
+  --text:#eef1e8;
+  --muted:#9aaea6;
+  --brass:#e9b44c;     /* Messing – Akzent für Aktionen & Häkchen */
+  --brass-ink:#2a1d05;
+  --sage:#86c0a0;
+  --warn:#f2967a;
+  --display:"Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --body:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --r-lg:20px; --r-md:14px; --r-sm:10px;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 var(--body);min-height:100vh;
+  padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+main{max-width:640px;margin:0 auto;padding:calc(16px + env(safe-area-inset-top)) 16px 24px}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+.hidden{display:none!important}
+
+/* ---------- Kopf ---------- */
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.today{font:600 14px/1.2 var(--body);color:var(--muted);margin:0 0 2px}
+h1{font:800 clamp(34px,10vw,46px)/1 var(--display);letter-spacing:-.02em;margin:0}
+.chip{border:1px solid var(--line);background:none;border-radius:99px;padding:6px 11px;font-size:12px;color:var(--muted);white-space:nowrap}
+.chip.warn{border-color:var(--warn);color:var(--warn)}
+.summary{margin:14px 0 10px;font-size:17px;color:var(--text)}
+.summary strong{font-family:var(--display);font-weight:800;font-size:22px}
+.bar{height:6px;background:var(--surface-2);border-radius:99px;overflow:hidden}
+.bar>i{display:block;height:100%;width:0;background:var(--brass);transition:width .3s ease}
+
+/* ---------- Zeitleiste ---------- */
+.timeline{margin:22px 0 10px;display:grid;gap:6px}
+.row{display:flex;align-items:stretch;background:var(--surface);border-radius:var(--r-md);min-height:68px}
+.hit{flex:1;display:flex;align-items:center;gap:14px;padding:10px 6px 10px 14px;background:none;border:0;text-align:left;min-width:0}
+.t{font:800 28px/1 var(--display);font-variant-numeric:tabular-nums;letter-spacing:-.01em;width:84px;flex:none}
+.t.repeat{color:var(--muted);opacity:.45}
+.info{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px}
+.pp{font-weight:650;font-size:17px}
+.tb{font-size:13px;color:var(--muted);border:1px solid var(--line);border-radius:7px;padding:1px 7px}
+.late{flex-basis:100%;font-size:12px;color:var(--warn)}
+.tick{flex:none;width:30px;height:30px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;transition:background .15s,border-color .15s}
+.tick::after{content:"";width:12px;height:7px;border:solid var(--brass-ink);border-width:0 0 3px 3px;transform:rotate(-45deg) translate(1px,-1px);opacity:0}
+.row.done{background:transparent;outline:1px solid var(--line);outline-offset:-1px}
+.row.done .t,.row.done .pp{color:var(--muted);text-decoration:line-through;text-decoration-thickness:2px}
+.row.done .tick{background:var(--brass);border-color:var(--brass)}
+.row.done .tick::after{opacity:1}
+.more{flex:none;width:44px;background:none;border:0;color:var(--muted);font-size:20px;border-radius:0 var(--r-md) var(--r-md) 0}
+.now{display:flex;align-items:center;gap:10px;color:var(--brass);font:600 13px var(--body);margin:4px 0}
+.now::before,.now::after{content:"";height:2px;background:var(--brass);border-radius:2px}
+.now::before{width:14px}.now::after{flex:1}
+.empty{padding:30px 18px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:var(--r-lg)}
+.empty b{display:block;color:var(--text);font:600 18px var(--display);margin-bottom:4px}
+
+.listtools{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0 0}
+.textbtn{background:none;border:0;color:var(--muted);padding:10px 8px;font-size:14px;text-decoration:underline;text-underline-offset:3px}
+.textbtn.danger{color:var(--warn)}
+
+/* ---------- Buttons ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:12px 16px;border-radius:var(--r-md);
+  border:1px solid var(--line);background:var(--surface-2);font-weight:650;font-size:15px}
+.btn.primary{background:var(--brass);border-color:var(--brass);color:var(--brass-ink)}
+.btn.ghost{background:none}
+.btn.danger{background:none;border-color:var(--warn);color:var(--warn)}
+.btn.wide{width:100%}
+.btns{display:flex;gap:8px;flex-wrap:wrap}.btns>*{flex:1}
+
+/* ---------- Bereiche ---------- */
+.close-day{margin:28px 0 8px}
+details.sect{border-top:1px solid var(--line)}
+details.sect:last-of-type{border-bottom:1px solid var(--line)}
+details.sect>summary{list-style:none;display:flex;justify-content:space-between;align-items:center;padding:18px 2px;font:600 18px var(--display);cursor:pointer}
+details.sect>summary::-webkit-details-marker{display:none}
+details.sect>summary::after{content:"+";font:400 24px var(--body);color:var(--muted)}
+details.sect[open]>summary::after{content:"–"}
+.sect-body{padding:0 2px 20px}
+.hint{color:var(--muted);font-size:14px;margin:0 0 14px}
+.count{font:400 14px var(--body);color:var(--muted);margin-left:auto;margin-right:12px}
+
+/* Archiv */
+.day{border:1px solid var(--line);border-radius:var(--r-md);margin-bottom:8px}
+.day>summary{list-style:none;padding:14px;cursor:pointer;display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.day>summary::-webkit-details-marker{display:none}
+.day .d{font-weight:650}
+.day .m{font-size:13px;color:var(--muted);text-align:right}
+.day-body{padding:0 14px 14px}
+.day-row{display:flex;gap:12px;padding:6px 0;border-top:1px solid var(--line);font-size:15px}
+.day-row .dt{font:600 15px var(--display);font-variant-numeric:tabular-nums;width:50px}
+.day-row.no{color:var(--muted)}
+.day-body .btns{margin-top:12px}
+
+/* ---------- Untere Leiste ---------- */
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:20;padding:10px 16px calc(10px + env(safe-area-inset-bottom));
+  background:linear-gradient(to top,var(--bg) 70%,transparent)}
+.dock .btns{max-width:640px;margin:0 auto}
+.dock .btn{min-height:54px;font-size:16px;box-shadow:0 6px 24px rgba(0,0,0,.35)}
+.dock .btn.photo{flex:0 0 auto;padding:12px 18px}
+
+/* ---------- Sheets (Dialoge) ---------- */
+dialog{border:0;padding:0;background:transparent;color:var(--text);max-width:none;max-height:none;width:100%;height:100%;margin:0}
+dialog::backdrop{background:rgba(5,10,9,.7)}
+.sheet{position:absolute;left:0;right:0;bottom:0;max-width:640px;margin:0 auto;background:var(--surface);border-radius:var(--r-lg) var(--r-lg) 0 0;
+  padding:22px 18px calc(18px + env(safe-area-inset-bottom));max-height:92vh;overflow:auto;animation:up .22s ease-out}
+@keyframes up{from{transform:translateY(30px);opacity:.4}}
+@media (prefers-reduced-motion:reduce){.sheet{animation:none}.bar>i,.tick{transition:none}}
+.sheet h2{font:800 24px var(--display);margin:0 0 6px}
+.field{margin:14px 0}
+.field label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+.field input{width:100%;min-height:52px;background:var(--bg);border:1px solid var(--line);border-radius:var(--r-sm);padding:12px;font-size:18px}
+.stepper{display:flex;gap:8px}
+.stepper input{text-align:center;font:800 24px var(--display)}
+.stepper button{flex:none;width:56px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--surface-2);font-size:24px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sheet .btns{margin-top:18px}
+.preview{width:100%;max-height:220px;object-fit:contain;border-radius:var(--r-sm);margin:12px 0;background:var(--bg)}
+.status{font-size:14px;color:var(--muted);margin:10px 0}
+.status.error{color:var(--warn)}
+.entry{display:grid;grid-template-columns:1fr 80px 1fr 44px;gap:6px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+.entry input{width:100%;min-width:0;min-height:44px;background:var(--bg);border:1px solid var(--line);border-radius:var(--r-sm);padding:8px;font-size:16px}
+.entry .x{min-height:44px;background:none;border:0;color:var(--muted);font-size:18px}
+.entry .flag{grid-column:1/-1;font-size:12px;color:var(--warn)}
+.entry-head{display:grid;grid-template-columns:1fr 80px 1fr 44px;gap:6px;font-size:12px;color:var(--muted);margin-top:10px}
+.check{display:flex;gap:10px;align-items:center;font-size:15px;margin-top:14px}
+.check input{width:22px;height:22px;accent-color:var(--brass)}
+
+/* Toast */
+.toast{position:fixed;left:16px;right:16px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:50;max-width:608px;margin:0 auto;
+  background:var(--text);color:var(--bg);border-radius:var(--r-md);padding:14px 16px;font-weight:600;font-size:15px;
+  display:flex;gap:12px;align-items:center;justify-content:space-between;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+.toast button{background:none;border:0;color:var(--bg);font-weight:800;text-decoration:underline;padding:4px}
+</style>
+</head>
+<body>
+<main>
+  <header class="top">
+    <div>
+      <p class="today" id="todayLabel"></p>
+      <h1>Service</h1>
+    </div>
+    <button class="chip" id="saveChip" type="button">Gespeichert</button>
+  </header>
+
+  <p class="summary" id="summary"></p>
+  <div class="bar" aria-hidden="true"><i id="progress"></i></div>
+
+  <div class="timeline" id="timeline" aria-live="polite"></div>
+
+  <div class="listtools" id="listTools">
+    <button class="textbtn" id="share" type="button">Liste teilen</button>
+    <button class="textbtn" id="reset" type="button">Häkchen zurücksetzen</button>
+    <button class="textbtn danger" id="resetAll" type="button">Liste leeren</button>
+  </div>
+
+  <div class="close-day">
+    <button class="btn wide" id="finishDay" type="button">Tag abschließen und archivieren</button>
+  </div>
+
+  <details class="sect" id="archiveSect">
+    <summary>Tagesarchiv <span class="count" id="archiveCount"></span></summary>
+    <div class="sect-body" id="archiveList"></div>
+  </details>
+
+  <details class="sect" id="backupSect">
+    <summary>Sicherung</summary>
+    <div class="sect-body">
+      <p class="hint" id="backupInfo"></p>
+      <div class="btns">
+        <button class="btn primary" id="exportBtn" type="button">Sicherung speichern</button>
+        <button class="btn" id="importBtn" type="button">Sicherung laden</button>
+      </div>
+      <input id="importFile" type="file" accept="application/json,.json" class="hidden">
+      <p class="hint" style="margin-top:16px">Die Sicherung ist eine kleine Datei mit Liste und komplettem Archiv. Speicher sie in „Dateien“, iCloud oder schick sie dir selbst – beim Laden werden fehlende Tage ergänzt, nichts wird überschrieben.</p>
+      <p class="hint">Tipp: Über „Teilen → Zum Home-Bildschirm“ wird die Seite zur App. Dann löscht Safari die Daten nicht nach ein paar Tagen ohne Besuch.</p>
+    </div>
+  </details>
+</main>
+
+<!-- Untere Leiste -->
+<nav class="dock">
+  <div class="btns">
+    <button class="btn photo" id="openPhoto" type="button">📷 Foto</button>
+    <button class="btn primary" id="openAdd" type="button">＋ Reservierung</button>
+  </div>
+</nav>
+
+<!-- Reservierung anlegen / bearbeiten -->
+<dialog id="resDlg">
+  <form class="sheet" id="resForm" method="dialog">
+    <h2 id="resTitle">Neue Reservierung</h2>
+    <div class="two">
+      <div class="field"><label for="fTime">Uhrzeit</label><input id="fTime" type="time" required></div>
+      <div class="field"><label for="fTable">Tisch (optional)</label><input id="fTable" type="text" maxlength="20" placeholder="z. B. 12" autocomplete="off"></div>
+    </div>
+    <div class="field">
+      <label for="fPeople">Personen</label>
+      <div class="stepper">
+        <button type="button" id="pMinus" aria-label="Eine Person weniger">−</button>
+        <input id="fPeople" type="number" min="1" max="100" inputmode="numeric" required>
+        <button type="button" id="pPlus" aria-label="Eine Person mehr">+</button>
+      </div>
+    </div>
+    <div class="btns">
+      <button class="btn danger hidden" id="resDelete" type="button">Löschen</button>
+      <button class="btn ghost" type="button" data-close>Abbrechen</button>
+      <button class="btn primary" id="resSave" type="submit">Speichern</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Foto-Import -->
+<dialog id="photoDlg">
+  <div class="sheet">
+    <h2>Liste aus Foto</h2>
+    <p class="hint">Fotografier das Reservierungsbuch. Die KI liest Uhrzeit, Personen und Tisch – keine Namen. Prüf die Vorschläge, bevor du sie übernimmst.</p>
+    <div class="btns">
+      <label class="btn primary" for="camera">Kamera</label>
+      <label class="btn" for="upload">Aus Galerie</label>
+    </div>
+    <input id="camera" type="file" accept="image/*" capture="environment" class="hidden">
+    <input id="upload" type="file" accept="image/*" class="hidden">
+    <img id="preview" class="preview hidden" alt="Foto-Vorschau">
+    <div id="status" class="status"></div>
+    <div id="review" class="hidden">
+      <div class="entry-head"><span>Uhrzeit</span><span>Pers.</span><span>Tisch</span><span></span></div>
+      <div id="entries"></div>
+      <button class="textbtn" id="addRow" type="button">Zeile hinzufügen</button>
+      <div class="btns">
+        <button class="btn" id="applyAppend" type="button">Zur Liste hinzufügen</button>
+        <button class="btn primary" id="applyReplace" type="button">Liste ersetzen</button>
+      </div>
+    </div>
+    <div class="btns"><button class="btn ghost" type="button" data-close>Schließen</button></div>
+  </div>
+</dialog>
+
+<!-- Tagesabschluss -->
+<dialog id="dayDlg">
+  <form class="sheet" id="dayForm" method="dialog">
+    <h2>Tag abschließen</h2>
+    <p class="hint" id="daySummary"></p>
+    <div class="field"><label for="dayDate">Datum des Service-Tages</label><input id="dayDate" type="date" required></div>
+    <label class="check"><input type="checkbox" id="dayBackup" checked> Danach gleich eine Sicherung speichern</label>
+    <div class="btns">
+      <button class="btn ghost" type="button" data-close>Abbrechen</button>
+      <button class="btn primary" type="submit">Archivieren</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast hidden" id="toast" role="status"><span id="toastText"></span><button id="toastAction" class="hidden" type="button"></button></div>
+
+<script>
+/* =========================================================
+   Speicher: localStorage + IndexedDB-Spiegel + Sicherungsdatei
+   Schlüssel bleiben gleich wie in der alten Version,
+   damit vorhandene Daten übernommen werden.
+   ========================================================= */
+const KEY="service-abhakliste-empty-v2";
+const ARCHIVE_KEY="service-abhakliste-archive-v2";
+const BACKUP_KEY="service-abhakliste-lastbackup";
+const AI_OCR_ENDPOINT="https://reservierung-ocr.klaffke88.workers.dev";
+const $=id=>document.getElementById(id);
+
+function readLS(k,fallback){try{const v=JSON.parse(localStorage.getItem(k));return v??fallback}catch(e){return fallback}}
+let bookings=readLS(KEY,[]);if(!Array.isArray(bookings))bookings=[];
+let archive=readLS(ARCHIVE_KEY,[]);if(!Array.isArray(archive))archive=[];
+
+const idb={
+  db:null,
+  open(){return new Promise(res=>{try{const r=indexedDB.open("service-abhakliste",1);
+    r.onupgradeneeded=()=>r.result.createObjectStore("kv");
+    r.onsuccess=()=>res(this.db=r.result);r.onerror=()=>res(null)}catch(e){res(null)}})},
+  async get(k){const db=this.db||await this.open();if(!db)return undefined;
+    return new Promise(res=>{try{const q=db.transaction("kv").objectStore("kv").get(k);q.onsuccess=()=>res(q.result);q.onerror=()=>res(undefined)}catch(e){res(undefined)}})},
+  async set(k,v){const db=this.db||await this.open();if(!db)return;
+    try{db.transaction("kv","readwrite").objectStore("kv").put(v,k)}catch(e){}}
+};
+
+let saveOk=true,idbReady=false;
+function save(){
+  saveOk=true;
+  try{localStorage.setItem(KEY,JSON.stringify(bookings));localStorage.setItem(ARCHIVE_KEY,JSON.stringify(archive))}catch(e){saveOk=false}
+  if(idbReady){idb.set(KEY,bookings);idb.set(ARCHIVE_KEY,archive)}
+  updateChip();
+}
+
+/* Beim Start: Falls localStorage leer ist, aus IndexedDB zurückholen */
+async function restoreFromIdb(){
+  const [b,a]=await Promise.all([idb.get(KEY),idb.get(ARCHIVE_KEY)]);
+  idbReady=true;let restored=false;
+  if(!bookings.length&&Array.isArray(b)&&b.length){bookings=b;restored=true}
+  if(Array.isArray(a)&&a.length){const added=mergeArchive(a);if(added)restored=true}
+  if(restored){save();render();renderArchive();toast("Daten aus dem Zweitspeicher wiederhergestellt")}
+  else{idb.set(KEY,bookings);idb.set(ARCHIVE_KEY,archive)}
+}
+function mergeArchive(days){
+  let added=0;
+  days.forEach(d=>{if(!d||!Array.isArray(d.items))return;
+    const iso=d.isoDate||isoFromDE(d.date);
+    if(!archive.some(x=>(x.isoDate||isoFromDE(x.date))===iso)){archive.push({...d,isoDate:iso});added++}});
+  archive.sort((a,b)=>(b.isoDate||"").localeCompare(a.isoDate||""));
+  return added;
+}
+
+/* Browser bitten, die Daten nicht automatisch zu löschen */
+if(navigator.storage&&navigator.storage.persist){navigator.storage.persisted().then(p=>{if(!p)navigator.storage.persist()}).catch(()=>{})}
+
+/* ---------- Hilfen ---------- */
+const pad=n=>String(n).padStart(2,"0");
+const localISO=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const isoFromDE=s=>{if(!s)return"";const [d,m,y]=s.split(".");return y?`${y}-${m}-${d}`:s};
+const nowHM=()=>{const d=new Date();return pad(d.getHours())+":"+pad(d.getMinutes())};
+const mins=hm=>{const [h,m]=hm.split(":").map(Number);return h*60+m};
+const plural=(n,one,many)=>n+" "+(n===1?one:many);
+const fmtLong=iso=>new Date(iso+"T12:00").toLocaleDateString("de-DE",{weekday:"short",day:"numeric",month:"long",year:"numeric"});
+const el=(tag,cls,text)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e};
+const totalPeople=list=>list.reduce((s,x)=>s+(Number(x.people)||0),0);
+const sorted=()=>bookings.slice().sort((a,b)=>a.time.localeCompare(b.time));
+bookings.forEach((x,i)=>{if(!x.id)x.id="b"+Date.now()+i});
+
+let toastTimer;
+function toast(text,actionLabel,action){
+  $("toastText").textContent=text;const b=$("toastAction");
+  if(actionLabel){b.textContent=actionLabel;b.classList.remove("hidden");b.onclick=()=>{hideToast();action()}}else b.classList.add("hidden");
+  $("toast").classList.remove("hidden");clearTimeout(toastTimer);toastTimer=setTimeout(hideToast,actionLabel?8000:3500);
+}
+function hideToast(){$("toast").classList.add("hidden")}
+
+/* ---------- Liste ---------- */
+function render(){
+  const root=$("timeline");root.innerHTML="";
+  const list=sorted(),t=list.length,d=list.filter(x=>x.done).length,ppl=totalPeople(list);
+  $("todayLabel").textContent=new Date().toLocaleDateString("de-DE",{weekday:"long",day:"numeric",month:"long"});
+  const s=$("summary");s.innerHTML="";
+  if(!t){s.textContent="Noch nichts eingetragen."}
+  else{s.append(el("strong",null,ppl+" Gäste")," in "+plural(t,"Reservierung","Reservierungen")+". "+d+" abgehakt, "+(t-d)+" offen.")}
+  $("progress").style.width=(t?100*d/t:0)+"%";
+  $("listTools").classList.toggle("hidden",!t);
+
+  if(!t){const e=el("div","empty");e.append(el("b",null,"Die Liste ist leer"),"Trag unten eine Reservierung ein oder fotografier das Reservierungsbuch.");root.append(e);return}
+
+  const now=nowHM(),nowM=mins(now);let markerDone=false,prev=null;
+  const marker=()=>{const m=el("div","now","Jetzt "+now);root.append(m);markerDone=true};
+  list.forEach(x=>{
+    if(!markerDone&&x.time>now)marker();
+    const row=el("div","row"+(x.done?" done":""));
+    const hit=el("button","hit");hit.type="button";hit.setAttribute("aria-pressed",!!x.done);
+    const tm=el("span","t"+(x.time===prev?" repeat":""),x.time);prev=x.time;
+    const info=el("span","info");info.append(el("span","pp",plural(Number(x.people),"Person","Personen")));
+    if(x.table)info.append(el("span","tb","Tisch "+x.table));
+    const late=nowM-mins(x.time);
+    if(!x.done&&late>=10&&late<=240)info.append(el("span","late","seit "+late+" min fällig"));
+    hit.append(tm,info,el("span","tick"));
+    hit.setAttribute("aria-label",x.time+", "+x.people+" Personen"+(x.table?", Tisch "+x.table:"")+(x.done?", abgehakt":""));
+    hit.onclick=()=>{x.done=!x.done;if(navigator.vibrate)navigator.vibrate(12);save();render()};
+    const more=el("button","more","⋯");more.type="button";more.setAttribute("aria-label","Reservierung "+x.time+" bearbeiten");
+    more.onclick=()=>openRes(x);
+    row.append(hit,more);root.append(row);
+  });
+  if(!markerDone)marker();
+}
+setInterval(render,60000);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)render()});
+
+/* ---------- Dialoge allgemein ---------- */
+document.querySelectorAll("dialog").forEach(dl=>{
+  dl.addEventListener("click",e=>{if(e.target===dl)dl.close()});
+  dl.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>dl.close());
+});
+
+/* ---------- Reservierung anlegen / bearbeiten ---------- */
+let editing=null;
+function openRes(item){
+  editing=item||null;
+  $("resTitle").textContent=item?"Reservierung bearbeiten":"Neue Reservierung";
+  $("fTime").value=item?item.time:(sorted().slice(-1)[0]?.time||"18:00");
+  $("fPeople").value=item?item.people:2;
+  $("fTable").value=item?(item.table||""):"";
+  $("resDelete").classList.toggle("hidden",!item);
+  $("resDlg").showModal();
+}
+$("openAdd").onclick=()=>openRes(null);
+$("pMinus").onclick=()=>{$("fPeople").value=Math.max(1,(+$("fPeople").value||1)-1)};
+$("pPlus").onclick=()=>{$("fPeople").value=Math.min(100,(+$("fPeople").value||0)+1)};
+$("resForm").onsubmit=e=>{
+  const time=$("fTime").value,people=Number($("fPeople").value),table=$("fTable").value.trim();
+  if(!/^\d\d:\d\d$/.test(time)||!Number.isInteger(people)||people<1||people>100){e.preventDefault();toast("Bitte Uhrzeit und 1–100 Personen eintragen");return}
+  if(editing){Object.assign(editing,{time,people,table})}
+  else bookings.push({id:"manual"+Date.now(),group:"Neue Liste",time,people,table,note:"",done:false});
+  save();render();toast(editing?"Reservierung gespeichert":"Reservierung um "+time+" eingetragen");
+};
+$("resDelete").onclick=()=>{
+  if(!editing)return;const gone=editing,idx=bookings.indexOf(gone);
+  bookings.splice(idx,1);save();render();$("resDlg").close();
+  toast("Reservierung "+gone.time+" gelöscht","Rückgängig",()=>{bookings.push(gone);save();render()});
+};
+
+/* ---------- Listen-Aktionen ---------- */
+$("reset").onclick=()=>{if(confirm("Alle Häkchen zurücksetzen?")){bookings.forEach(x=>x.done=false);save();render()}};
+$("resetAll").onclick=()=>{
+  if(!confirm("Wirklich alle Reservierungen löschen? Das Archiv bleibt erhalten."))return;
+  const old=bookings;bookings=[];save();render();
+  toast("Liste geleert","Rückgängig",()=>{bookings=old;save();render()});
+};
+$("share").onclick=async()=>{
+  const text=sorted().map(x=>(x.done?"✓ ":"○ ")+x.time+"  "+x.people+" Pers."+(x.table?"  Tisch "+x.table:"")).join("\n");
+  if(navigator.share){try{await navigator.share({title:"Service-Abhakliste",text})}catch(e){}}
+  else{try{await navigator.clipboard.writeText(text);toast("Liste kopiert")}catch(e){alert(text)}}
+};
+
+/* ---------- Foto-Import (KI) ---------- */
+let reviewRows=[];
+function setStatus(t,err=false){$("status").textContent=t;$("status").classList.toggle("error",err)}
+$("openPhoto").onclick=()=>{if(!reviewRows.length){$("preview").classList.add("hidden");$("review").classList.add("hidden");setStatus("")}$("photoDlg").showModal()};
+function showReview(rows){
+  reviewRows=rows.map(x=>({...x,table:String(x.table||"")}));
+  const root=$("entries");root.innerHTML="";
+  reviewRows.forEach((x,i)=>{
+    const row=el("div","entry");
+    const ti=el("input");ti.type="time";ti.value=x.time||"";ti.setAttribute("aria-label","Uhrzeit");ti.oninput=()=>reviewRows[i].time=ti.value;
+    const pi=el("input");pi.type="number";pi.min=1;pi.max=100;pi.inputMode="numeric";pi.value=x.people||"";pi.setAttribute("aria-label","Personen");pi.oninput=()=>reviewRows[i].people=+pi.value;
+    const tb=el("input");tb.type="text";tb.maxLength=20;tb.placeholder="–";tb.value=x.table||"";tb.setAttribute("aria-label","Tisch");tb.oninput=()=>reviewRows[i].table=tb.value.trim();
+    const del=el("button","x","✕");del.type="button";del.setAttribute("aria-label","Zeile entfernen");del.onclick=()=>{reviewRows.splice(i,1);showReview(reviewRows)};
+    row.append(ti,pi,tb,del);
+    if(x.confidence!==undefined&&Number(x.confidence)<0.75)row.append(el("div","flag","Unsicher erkannt – bitte am Foto prüfen"));
+    root.append(row);
+  });
+  $("review").classList.remove("hidden");
+}
+$("addRow").onclick=()=>{reviewRows.push({time:"18:00",people:2,table:""});showReview(reviewRows)};
+function applyRows(replace){
+  const rows=reviewRows.filter(x=>/^\d\d:\d\d$/.test(x.time)&&Number.isInteger(+x.people)&&+x.people>0&&+x.people<=100);
+  if(!rows.length){setStatus("Keine gültigen Zeilen. Ergänze Uhrzeit und Personen.",true);return}
+  if(replace&&bookings.length&&!confirm("Die aktuelle Liste ("+bookings.length+" Einträge) durch "+rows.length+" neue ersetzen?"))return;
+  const fresh=rows.map((x,i)=>({id:"photo"+Date.now()+i,group:"Neue Liste",time:x.time,people:+x.people,table:String(x.table||"").trim(),note:"",done:false}));
+  bookings=replace?fresh:bookings.concat(fresh);
+  save();render();reviewRows=[];$("photoDlg").close();
+  toast(plural(fresh.length,"Eintrag","Einträge")+(replace?" übernommen":" hinzugefügt"));
+}
+$("applyReplace").onclick=()=>applyRows(true);
+$("applyAppend").onclick=()=>applyRows(false);
+
+function fileToBase64(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]||"");r.onerror=()=>rej(Error("Bilddatei konnte nicht gelesen werden."));r.readAsDataURL(file)})}
+async function handle(file){
+  if(!file)return;
+  $("preview").src=URL.createObjectURL(file);$("preview").classList.remove("hidden");$("review").classList.add("hidden");
+  if(file.size>12*1024*1024){setStatus("Das Foto ist größer als 12 MB. Mach einen Screenshot davon und versuch es damit.",true);return}
+  setStatus("Die KI liest die Liste …");
+  try{
+    const imageBase64=await fileToBase64(file);
+    const response=await fetch(AI_OCR_ENDPOINT,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mimeType:file.type||"image/jpeg",imageBase64})});
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok)throw Error(data.error||("KI-Dienst meldet HTTP "+response.status));
+    const rows=(Array.isArray(data.reservations)?data.reservations:[])
+      .map(x=>({time:String(x.time||"").trim(),people:Number(x.people),table:String(x.table||"").trim(),confidence:Number.isFinite(Number(x.confidence))?Number(x.confidence):undefined}))
+      .filter(x=>/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(x.time)&&Number.isInteger(x.people)&&x.people>=1&&x.people<=100)
+      .sort((a,b)=>a.time.localeCompare(b.time));
+    if(!rows.length){setStatus("Keine Uhrzeit-Personen-Paare gefunden. Fotografier gerade und hell oder trag die Zeilen von Hand ein.",true);showReview([])}
+    else{setStatus(plural(rows.length,"Eintrag","Einträge")+" erkannt. Bitte prüfen.");showReview(rows)}
+  }catch(e){setStatus("Erkennung fehlgeschlagen: "+e.message+". Prüf die Internetverbindung.",true);showReview([])}
+}
+$("camera").onchange=e=>{handle(e.target.files[0]);e.target.value=""};
+$("upload").onchange=e=>{handle(e.target.files[0]);e.target.value=""};
+
+/* ---------- Tagesabschluss ---------- */
+$("finishDay").onclick=()=>{
+  if(!bookings.length){toast("Die Liste ist leer – nichts zu archivieren");return}
+  const today=localISO(new Date());
+  $("dayDate").value=today;$("dayDate").max=today;
+  $("daySummary").textContent=totalPeople(bookings)+" Gäste in "+plural(bookings.length,"Reservierung","Reservierungen")+" werden ins Archiv verschoben. Danach ist die Liste leer für den nächsten Service.";
+  $("dayDlg").showModal();
+};
+$("dayForm").onsubmit=e=>{
+  const iso=$("dayDate").value;
+  if(!iso){e.preventDefault();return}
+  if(archive.some(d=>(d.isoDate||isoFromDE(d.date))===iso)){e.preventDefault();toast("Für diesen Tag gibt es schon einen Eintrag im Archiv");return}
+  const [y,m,d]=iso.split("-");
+  archive.unshift({date:`${d}.${m}.${y}`,isoDate:iso,closedAt:new Date().toISOString(),totalBookings:bookings.length,totalPeople:totalPeople(bookings),doneCount:bookings.filter(x=>x.done).length,items:sorted().map(x=>({...x}))});
+  archive.sort((a,b)=>(b.isoDate||"").localeCompare(a.isoDate||""));
+  bookings=[];save();render();renderArchive();
+  if($("dayBackup").checked)exportBackup();
+  else toast("Tag archiviert");
+};
+
+/* ---------- Archiv ---------- */
+function renderArchive(){
+  const root=$("archiveList");root.innerHTML="";
+  $("archiveCount").textContent=archive.length?plural(archive.length,"Tag","Tage"):"";
+  if(!archive.length){root.append(el("p","hint","Noch keine abgeschlossenen Tage. Nach dem Service auf „Tag abschließen“ tippen."));return}
+  archive.forEach(day=>{
+    const iso=day.isoDate||isoFromDE(day.date);
+    const det=el("details","day"),sum=el("summary");
+    sum.append(el("span","d",iso?fmtLong(iso):day.date),el("span","m",(day.totalPeople||0)+" Gäste, "+plural(day.totalBookings||0,"Reservierung","Reservierungen")));
+    const body=el("div","day-body");
+    (day.items||[]).forEach(x=>{const r=el("div","day-row"+(x.done?"":" no"));r.append(el("span","dt",x.time),el("span",null,x.people+" Pers."+(x.table?", Tisch "+x.table:"")+(x.done?"":" – nicht abgehakt")));body.append(r)});
+    const btns=el("div","btns");
+    const sh=el("button","btn","Teilen");sh.type="button";
+    sh.onclick=async()=>{const text=(iso?fmtLong(iso):day.date)+"\n"+(day.items||[]).map(x=>(x.done?"✓ ":"○ ")+x.time+"  "+x.people+" Pers."+(x.table?"  Tisch "+x.table:"")).join("\n")+"\n"+day.totalPeople+" Gäste gesamt";
+      if(navigator.share){try{await navigator.share({text})}catch(e){}}else{try{await navigator.clipboard.writeText(text);toast("Tag kopiert")}catch(e){alert(text)}}};
+    const rm=el("button","btn danger","Tag löschen");rm.type="button";
+    rm.onclick=()=>{if(!confirm("Den "+(iso?fmtLong(iso):day.date)+" endgültig aus dem Archiv löschen?"))return;const i=archive.indexOf(day);archive.splice(i,1);save();renderArchive();
+      toast("Tag gelöscht","Rückgängig",()=>{archive.splice(i,0,day);save();renderArchive()})};
+    btns.append(sh,rm);body.append(btns);det.append(sum,body);root.append(det);
+  });
+}
+
+/* ---------- Sicherung ---------- */
+function lastBackup(){return Number(localStorage.getItem(BACKUP_KEY))||0}
+function updateChip(){
+  const chip=$("saveChip"),lb=lastBackup(),days=lb?Math.floor((Date.now()-lb)/864e5):null;
+  const stale=archive.length&&(days===null||days>=7);
+  chip.classList.toggle("warn",!saveOk||!!stale);
+  chip.textContent=!saveOk?"Speichern fehlgeschlagen":stale?"Sicherung fällig":"Gespeichert";
+  $("backupInfo").textContent=lb?("Letzte Sicherung: "+(days===0?"heute":days===1?"gestern":"vor "+days+" Tagen")+"."):"Noch keine Sicherung gespeichert. Mach eine, dann ist das Archiv auch sicher, wenn der Browser mal aufräumt.";
+}
+$("saveChip").onclick=()=>{$("backupSect").open=true;$("backupSect").scrollIntoView({behavior:"smooth",block:"start"})};
+
+function exportBackup(){
+  const data={app:"service-abhakliste",version:1,exportedAt:new Date().toISOString(),bookings,archive};
+  const name="service-sicherung-"+localISO(new Date())+".json";
+  const blob=new Blob([JSON.stringify(data,null,1)],{type:"application/json"});
+  const done=()=>{try{localStorage.setItem(BACKUP_KEY,String(Date.now()))}catch(e){}updateChip();toast("Sicherung gespeichert")};
+  const file=new File([blob],name,{type:"application/json"});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){
+    navigator.share({files:[file],title:"Service-Sicherung"}).then(done).catch(err=>{if(err&&err.name!=="AbortError")download(blob,name,done)});
+  }else download(blob,name,done);
+}
+function download(blob,name,done){
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.append(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);done();
+}
+$("exportBtn").onclick=exportBackup;
+$("importBtn").onclick=()=>$("importFile").click();
+$("importFile").onchange=async e=>{
+  const f=e.target.files[0];e.target.value="";if(!f)return;
+  try{
+    const data=JSON.parse(await f.text());
+    if(!data||data.app!=="service-abhakliste")throw Error("Das ist keine Sicherung dieser App.");
+    const added=mergeArchive(Array.isArray(data.archive)?data.archive:[]);
+    let listMsg="";
+    if(Array.isArray(data.bookings)&&data.bookings.length){
+      if(!bookings.length){bookings=data.bookings;listMsg=", Liste übernommen"}
+      else if(confirm("Die Sicherung enthält auch eine Liste mit "+data.bookings.length+" Einträgen. Aktuelle Liste damit ersetzen?")){bookings=data.bookings;listMsg=", Liste ersetzt"}
+    }
+    save();render();renderArchive();
+    toast(plural(added,"Tag","Tage")+" ins Archiv ergänzt"+listMsg);
+  }catch(err){toast("Laden fehlgeschlagen: "+err.message)}
+};
+
+/* ---------- Start ---------- */
+save();render();renderArchive();restoreFromIdb();
+</script>
+</body>
+</html>
