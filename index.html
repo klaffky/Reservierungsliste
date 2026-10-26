@@ -184,6 +184,19 @@ dialog::backdrop{background:rgba(5,10,9,.7)}
     <div class="sect-body" id="archiveList"></div>
   </details>
 
+  <details class="sect" id="syncSect">
+    <summary>Widget-Sync</summary>
+    <div class="sect-body">
+      <p class="hint" id="syncInfo"></p>
+      <div class="field"><label for="syncPin">Admin-PIN</label><input id="syncPin" type="password" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+      <div class="btns">
+        <button class="btn primary" id="syncSave" type="button">PIN speichern &amp; testen</button>
+        <button class="btn danger" id="syncOff" type="button">Sync ausschalten</button>
+      </div>
+      <p class="hint" style="margin-top:16px">Nach jeder Änderung wird die Liste (Uhrzeit, Personen, Tisch – keine Namen) an deinen Cloudflare-Dienst geschickt, damit das Widget auf dem Home-Bildschirm sie anzeigen kann. Das Archiv bleibt nur auf diesem Gerät. Schalte den Sync nur auf dem Gerät ein, auf dem du die Liste pflegst.</p>
+    </div>
+  </details>
+
   <details class="sect" id="backupSect">
     <summary>Sicherung</summary>
     <div class="sect-body">
@@ -306,6 +319,7 @@ function save(){
   try{localStorage.setItem(KEY,JSON.stringify(bookings));localStorage.setItem(ARCHIVE_KEY,JSON.stringify(archive))}catch(e){saveOk=false}
   if(idbReady){idb.set(KEY,bookings);idb.set(ARCHIVE_KEY,archive)}
   updateChip();
+  scheduleSync();
 }
 
 /* Beim Start: Falls localStorage leer ist, aus IndexedDB zurückholen */
@@ -533,11 +547,15 @@ function lastBackup(){return Number(localStorage.getItem(BACKUP_KEY))||0}
 function updateChip(){
   const chip=$("saveChip"),lb=lastBackup(),days=lb?Math.floor((Date.now()-lb)/864e5):null;
   const stale=archive.length&&(days===null||days>=7);
-  chip.classList.toggle("warn",!saveOk||!!stale);
-  chip.textContent=!saveOk?"Speichern fehlgeschlagen":stale?"Sicherung fällig":"Gespeichert";
+  const syncBad=!!syncPin()&&syncState.ok===false;
+  chip.classList.toggle("warn",!saveOk||!!stale||syncBad);
+  chip.textContent=!saveOk?"Speichern fehlgeschlagen":syncBad?"Sync-Fehler":stale?"Sicherung fällig":"Gespeichert";
   $("backupInfo").textContent=lb?("Letzte Sicherung: "+(days===0?"heute":days===1?"gestern":"vor "+days+" Tagen")+"."):"Noch keine Sicherung gespeichert. Mach eine, dann ist das Archiv auch sicher, wenn der Browser mal aufräumt.";
 }
-$("saveChip").onclick=()=>{$("backupSect").open=true;$("backupSect").scrollIntoView({behavior:"smooth",block:"start"})};
+$("saveChip").onclick=()=>{
+  const t=(syncPin()&&syncState.ok===false)?$("syncSect"):$("backupSect");
+  t.open=true;t.scrollIntoView({behavior:"smooth",block:"start"});
+};
 
 function exportBackup(){
   const data={app:"service-abhakliste",version:1,exportedAt:new Date().toISOString(),bookings,archive};
@@ -571,8 +589,73 @@ $("importFile").onchange=async e=>{
   }catch(err){toast("Laden fehlgeschlagen: "+err.message)}
 };
 
+/* ---------- Widget-Sync (Cloud) ----------
+   Schickt die aktuelle Liste nach jeder Änderung an den Worker,
+   damit das Scriptable-Widget sie lesen kann. Nur in eine Richtung
+   (Gerät -> Cloud). Schlägt der Sync fehl, läuft die App normal weiter. */
+const PIN_KEY="service-abhakliste-syncpin";
+const SYNC_URL=AI_OCR_ENDPOINT+"/api/bookings";
+let syncTimer=null,syncDirty=false,syncBusy=false,syncState={ok:null,at:0,msg:""};
+function syncPin(){try{return localStorage.getItem(PIN_KEY)||""}catch(e){return""}}
+function scheduleSync(){
+  if(!syncPin())return;
+  syncDirty=true;clearTimeout(syncTimer);syncTimer=setTimeout(pushSync,800);
+}
+async function pushSync(){
+  const pin=syncPin();
+  if(!pin||!syncDirty||syncBusy)return;
+  syncBusy=true;syncDirty=false;
+  try{
+    const r=await fetch(SYNC_URL,{method:"POST",headers:{"Content-Type":"application/json","X-ADMIN-PIN":pin},body:JSON.stringify({bookings})});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok)throw Error(d.error||("HTTP "+r.status));
+    syncState={ok:true,at:Date.now(),msg:""};
+  }catch(e){
+    syncDirty=true;
+    syncState={ok:false,at:syncState.at,msg:(e&&e.message)||"unbekannt"};
+  }
+  syncBusy=false;renderSync();updateChip();
+  if(syncDirty&&syncState.ok===true)scheduleSync();
+}
+function renderSync(){
+  const info=$("syncInfo");if(!info)return;
+  const hm=t=>{const d=new Date(t);return pad(d.getHours())+":"+pad(d.getMinutes())};
+  if(!syncPin())info.textContent="Aus. Trag die Admin-PIN ein, um die Liste fürs Widget bereitzustellen.";
+  else if(syncState.ok===false)info.textContent="Fehler: "+syncState.msg+(syncState.at?" (zuletzt erfolgreich um "+hm(syncState.at)+")":"")+". Wird bei der nächsten Änderung oder beim Zurückkehren in die App erneut versucht.";
+  else if(syncState.ok===true)info.textContent="An. Zuletzt gesendet um "+hm(syncState.at)+".";
+  else info.textContent="An. Wartet auf die erste Übertragung …";
+}
+async function pingSync(pin){
+  /* Testet die PIN, ohne die Liste zu überschreiben: Lesen mit der Admin-PIN */
+  const r=await fetch(SYNC_URL,{headers:{"X-ADMIN-PIN":pin}});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok)throw Error(d.error||("HTTP "+r.status));
+}
+$("syncSave").onclick=async()=>{
+  const pin=$("syncPin").value.trim();
+  if(!pin){toast("Bitte die Admin-PIN eintragen");return}
+  $("syncInfo").textContent="Teste Verbindung …";
+  try{
+    await pingSync(pin);
+    localStorage.setItem(PIN_KEY,pin);$("syncPin").value="";
+    syncState={ok:null,at:0,msg:""};syncDirty=true;
+    await pushSync();
+    toast(syncState.ok?"Sync ist an":"Sync-Test fehlgeschlagen");
+  }catch(e){
+    syncState={ok:false,at:0,msg:e.message};renderSync();
+    toast("PIN oder Verbindung falsch: "+e.message);
+  }
+};
+$("syncOff").onclick=()=>{
+  try{localStorage.removeItem(PIN_KEY)}catch(e){}
+  syncState={ok:null,at:0,msg:""};syncDirty=false;renderSync();updateChip();
+  toast("Sync ausgeschaltet");
+};
+window.addEventListener("online",()=>{if(syncDirty)pushSync()});
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&syncDirty)pushSync()});
+
 /* ---------- Start ---------- */
-save();render();renderArchive();restoreFromIdb();
+save();render();renderArchive();renderSync();restoreFromIdb();
 </script>
 </body>
 </html>
